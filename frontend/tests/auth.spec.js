@@ -1,0 +1,25 @@
+import { test, expect } from '@playwright/test';
+test('real registration, protected workspace, persistence and logout', async ({ page }) => {
+  const email = `browser-${Date.now()}@example.com`;
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByRole('link', { name: 'Create an account' }).click();
+  await page.getByLabel('Full name').fill('Browser Test');
+  await page.getByLabel('Email address').fill(email);
+  await page.getByLabel('Password', { exact: true }).fill('browser-test-long-passphrase');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.getByTestId('expenses')).toHaveText('Rs. 0.00');
+  await expect(page.getByRole('link', { name: 'Transactions', exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId('expenses')).toHaveText('Rs. 0.00');
+  await page.locator('summary').click();
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByLabel('Email address').fill(email);
+  await page.getByLabel('Password', { exact: true }).fill('incorrect');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Invalid email or password');
+  await page.getByLabel('Password', { exact: true }).fill('browser-test-long-passphrase');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByTestId('expenses')).toHaveText('Rs. 0.00');
+});

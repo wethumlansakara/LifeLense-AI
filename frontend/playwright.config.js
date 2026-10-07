@@ -1,0 +1,2 @@
+import { defineConfig } from '@playwright/test';
+export default defineConfig({ testDir: './tests', use: { baseURL: 'http://127.0.0.1:5173', browserName: 'chromium', launchOptions: process.env.LIFELENS_TEST_BROWSER ? { executablePath: process.env.LIFELENS_TEST_BROWSER } : {} }, webServer: { command: process.platform === 'win32' ? 'npm.cmd run dev -- --port 5173 --strictPort' : 'npm run dev -- --port 5173 --strictPort', url: 'http://127.0.0.1:5173', reuseExistingServer: true } });
