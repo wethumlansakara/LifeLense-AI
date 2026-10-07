@@ -14,12 +14,18 @@ from .security import create_token, current_user, dummy_hash, password_hash
 from .transactions import router as transactions_router
 from .dashboard import router as dashboard_router
 from .imports import router as imports_router
+from .intelligence.routes import router as intelligence_router
+from .financial_ai import router as ai_router
+from .goals import router as goals_router
 
-app = FastAPI(title='LifeLens AI', version='0.2.0')
+app = FastAPI(title='LifeLens AI', version='0.3.0')
 app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin], allow_credentials=False, allow_methods=['GET', 'POST', 'PUT', 'DELETE'], allow_headers=['Authorization', 'Content-Type'])
 app.include_router(transactions_router)
 app.include_router(dashboard_router)
 app.include_router(imports_router)
+app.include_router(intelligence_router)
+app.include_router(ai_router)
+app.include_router(goals_router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_error(request: Request, exc: RequestValidationError):

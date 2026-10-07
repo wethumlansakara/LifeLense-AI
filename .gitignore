@@ -10,3 +10,5 @@ __pycache__/
 *.log
 test-results/
 playwright-report/
+ml/artifacts/
+ml/private-data/

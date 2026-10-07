@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Numeric, String, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Numeric, String, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
 
@@ -39,6 +39,32 @@ class Transaction(Base):
     user: Mapped['User'] = relationship(back_populates='transactions')
     category: Mapped['Category'] = relationship(back_populates='transactions')
 
+class CategoryLabel(Base):
+    __tablename__ = 'category_labels'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    transaction_id: Mapped[int] = mapped_column(ForeignKey('transactions.id', ondelete='CASCADE'), unique=True)
+    category_id: Mapped[int] = mapped_column(ForeignKey('categories.id'))
+    description: Mapped[str] = mapped_column(String(500))
+    merchant: Mapped[str] = mapped_column(String(200), default='')
+    normalized_merchant: Mapped[str] = mapped_column(String(200), index=True)
+    text: Mapped[str] = mapped_column(String(800))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class SpendingAnomaly(Base):
+    __tablename__ = 'spending_anomalies'
+    __table_args__ = (CheckConstraint('score >= 0 AND score <= 1'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    transaction_id: Mapped[int] = mapped_column(ForeignKey('transactions.id', ondelete='CASCADE'), unique=True)
+    score: Mapped[float]
+    explanation: Mapped[str] = mapped_column(String(1000))
+    baseline: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    method: Mapped[str] = mapped_column(String(50))
+    marked_normal: Mapped[bool] = mapped_column(default=False, server_default='false')
+    active: Mapped[bool] = mapped_column(default=True, server_default='true')
+    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
 class SavingGoal(Base):
     __tablename__ = 'saving_goals'
     __table_args__ = (CheckConstraint('target_amount > 0'), CheckConstraint('saved_amount >= 0'))
@@ -50,3 +76,11 @@ class SavingGoal(Base):
     target_date: Mapped[date]
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     user: Mapped['User'] = relationship(back_populates='saving_goals')
+
+class ChatTurn(Base):
+    __tablename__ = 'chat_turns'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    question: Mapped[str] = mapped_column(String(1000))
+    answer: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

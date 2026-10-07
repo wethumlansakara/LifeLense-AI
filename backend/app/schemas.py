@@ -40,13 +40,14 @@ class CategoryRead(BaseModel):
 
 class TransactionCreate(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    category_id: int = Field(gt=0)
+    category_id: int | None = Field(default=None, gt=0)
     description: str = Field(min_length=1, max_length=500)
     amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
     transaction_type: Literal['income', 'expense']
     transaction_date: date
     merchant: str | None = Field(default=None, max_length=200)
     source: str = Field(default='manual', min_length=1, max_length=50)
+    category_confirmed: bool = False
 
     @field_validator('description', 'merchant')
     @classmethod
@@ -64,6 +65,7 @@ class TransactionRead(TransactionCreate):
     user_id: int
     created_at: datetime
     category: CategoryRead
+    category_id: int
 
 class TransactionPage(BaseModel):
     items: list[TransactionRead]

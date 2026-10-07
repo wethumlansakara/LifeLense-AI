@@ -16,9 +16,10 @@ from pydantic import ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from .database import get_db
-from .models import Category, Transaction, User
+from .models import Category, CategoryLabel, Transaction, User
 from .schemas import ImportConfirm, TransactionCreate
 from .security import current_user
+from .intelligence.categorizer import save_label, suggest_category
 
 router = APIRouter(prefix='/api/imports', tags=['Statement imports'])
 MAX_BYTES = 5 * 1024 * 1024
@@ -32,17 +33,6 @@ ALIASES = {
     'credit': ['credit', 'creditamount', 'deposit', 'deposits', 'paidin'],
     'transaction_type': ['type', 'transactiontype', 'direction', 'drcr', 'debitcredit'],
     'category': ['category', 'categoryname'],
-}
-RULES = {
-    'Groceries': ['keells', 'cargills', 'supermarket', 'grocery', 'groceries'],
-    'Food': ['restaurant', 'cafe', 'coffee', 'pizza', 'food', 'bakery'],
-    'Transport': ['uber', 'pickme', 'bus', 'taxi', 'fuel', 'petrol'],
-    'Bills': ['electricity', 'water bill', 'internet', 'dialog', 'mobitel', 'utility', 'rent'],
-    'Healthcare': ['hospital', 'pharmacy', 'medical', 'doctor'],
-    'Education': ['school', 'tuition', 'university', 'course'],
-    'Entertainment': ['netflix', 'cinema', 'spotify', 'movie'],
-    'Travel': ['hotel', 'airline', 'flight', 'booking'],
-    'Shopping': ['store', 'clothing', 'daraz', 'amazon'],
 }
 
 def normalized(value):
@@ -163,23 +153,6 @@ def infer_mapping(columns):
     normalized_columns = {re.sub(r'[^a-z0-9]', '', name.casefold()): name for name in columns}
     return {field: next((normalized_columns[alias] for alias in aliases if alias in normalized_columns), '') for field, aliases in ALIASES.items()}
 
-def infer_category(description, merchant, direction, raw_category, categories):
-    lookup = {normalized(category.name): category for category in categories}
-    explicit = lookup.get(normalized(raw_category))
-    if explicit and explicit.type == direction:
-        return explicit.id
-    name = 'Salary' if direction == 'income' else 'Other'
-    if direction == 'expense':
-        content = normalized(f'{description} {merchant}')
-        for candidate, words in RULES.items():
-            if any(word in content for word in words):
-                name = candidate
-                break
-    category = lookup.get(normalized(name))
-    if category is None:
-        raise HTTPException(503, 'Default categories are missing. Seed categories before importing.')
-    return category.id
-
 @router.post('/preview')
 def preview_statement(
     file: UploadFile = File(...), mapping: str = Form(default='{}'),
@@ -214,8 +187,9 @@ def preview_statement(
         result['warnings'].append('Map a date, description, and amount or debit/credit column, then parse again.')
         return result
     categories = db.scalars(select(Category)).all()
+    labels = db.scalars(select(CategoryLabel).where(CategoryLabel.user_id == user.id).order_by(CategoryLabel.updated_at.desc(), CategoryLabel.id.desc())).all()
     result['warnings'].append('All amounts are treated as LKR; no currency conversion is performed.')
-    result['warnings'].append('Categories are suggested by simple merchant rules. Review them before importing.')
+    result['warnings'].append('Categories use your private labels, merchant rules, then a starter text classifier. Confidence scores are uncalibrated; review suggestions before importing.')
     if detected['amount'] and not detected['transaction_type'] and not (detected['debit'] or detected['credit']):
         result['warnings'].append(f'Negative amounts are expenses; positive amounts default to {default_type}. Change the default or correct individual rows if needed.')
     valid_dates = []
@@ -249,7 +223,11 @@ def preview_statement(
             record.update(amount=str(abs(amount)), transaction_type=direction)
         except ValueError as exc:
             errors.append(str(exc))
-        record['category_id'] = infer_category(record['description'], record['merchant'], record['transaction_type'], values['category'], categories)
+        category_suggestion = suggest_category(db, user.id, record['description'], record['merchant'], record['transaction_type'], categories=categories, labels=labels)
+        explicit = next((category for category in categories if normalized(category.name) == normalized(values['category']) and category.type == record['transaction_type']), None)
+        record['category_id'] = explicit.id if explicit else category_suggestion['category_id']
+        if explicit:
+            category_suggestion = {**category_suggestion, 'category_id': explicit.id, 'category_name': explicit.name, 'method': 'statement_label', 'confidence': 1, 'reason': 'Category provided in the statement.'}
         if not errors:
             try:
                 cleaned = TransactionCreate.model_validate(record)
@@ -258,7 +236,7 @@ def preview_statement(
                 valid_dates.append(cleaned.transaction_date)
             except ValidationError as exc:
                 errors.extend(f"{error['loc'][-1]}: {error['msg']}" for error in exc.errors())
-        result['rows'].append({'row_number': int(index) + 2, 'transaction': record, 'errors': errors, 'duplicate': False})
+        result['rows'].append({'row_number': int(index) + 2, 'transaction': record, 'errors': errors, 'duplicate': False, 'suggestion': category_suggestion})
     seen = existing_fingerprints(db, user.id, valid_dates)
     for row in result['rows']:
         if row['errors']:
@@ -288,7 +266,11 @@ def confirm_import(body: ImportConfirm, user: User = Depends(current_user), db: 
             skipped += 1
             continue
         seen.add(key)
-        db.add(Transaction(**record.model_dump(exclude={'source'}), user_id=user.id, source=body.source))
+        transaction = Transaction(**record.model_dump(exclude={'source', 'category_confirmed'}), user_id=user.id, source=body.source)
+        db.add(transaction)
+        if record.category_confirmed:
+            db.flush()
+            save_label(db, transaction)
         imported += 1
     db.commit()
     return {'imported': imported, 'skipped_duplicates': skipped}

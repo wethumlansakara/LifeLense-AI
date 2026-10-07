@@ -8,6 +8,7 @@ from .database import get_db
 from .models import Category, Transaction, User
 from .schemas import TransactionCreate, TransactionPage, TransactionRead
 from .security import current_user
+from .intelligence.categorizer import save_label, suggest_category
 
 router = APIRouter(prefix='/api/transactions', tags=['Transactions'])
 
@@ -56,9 +57,15 @@ def list_transactions(
 
 @router.post('', response_model=TransactionRead, status_code=201)
 def add_transaction(body: TransactionCreate, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    confirmed = body.category_id is not None
+    if body.category_id is None:
+        body = body.model_copy(update={'category_id': suggest_category(db, user.id, body.description, body.merchant, body.transaction_type)['category_id']})
     validate_category(db, body.category_id, body.transaction_type)
-    record = Transaction(**body.model_dump(exclude={'source'}), source='manual', user_id=user.id)
+    record = Transaction(**body.model_dump(exclude={'source', 'category_confirmed'}), source='manual', user_id=user.id)
     db.add(record)
+    db.flush()
+    if confirmed:
+        save_label(db, record)
     db.commit()
     return owned_transaction(db, user.id, record.id)
 
@@ -69,9 +76,13 @@ def transaction_details(transaction_id: int, user: User = Depends(current_user),
 @router.put('/{transaction_id}', response_model=TransactionRead)
 def edit_transaction(transaction_id: int, body: TransactionCreate, user: User = Depends(current_user), db: Session = Depends(get_db)):
     record = owned_transaction(db, user.id, transaction_id)
+    if body.category_id is None:
+        body = body.model_copy(update={'category_id': suggest_category(db, user.id, body.description, body.merchant, body.transaction_type)['category_id']})
     validate_category(db, body.category_id, body.transaction_type)
-    for key, value in body.model_dump(exclude={'source'}).items():
+    for key, value in body.model_dump(exclude={'source', 'category_confirmed'}).items():
         setattr(record, key, value)
+    db.flush()
+    save_label(db, record)
     db.commit()
     return owned_transaction(db, user.id, transaction_id)
 

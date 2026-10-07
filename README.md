@@ -1,6 +1,6 @@
 # LifeLens AI
 
-Personal finance application implemented through **phases 1–6**: React/Vite/Tailwind, FastAPI, PostgreSQL/SQLAlchemy, Alembic migrations, authentication, transaction management, Chart.js analytics, and CSV/XLSX statement import.
+Personal finance application implemented through **phases 1–12**: React/Vite/Tailwind, FastAPI, PostgreSQL/SQLAlchemy, migrations, authentication, transactions, charts, statement import, private category learning, expense forecasts, and unusual-spending detection, grounded AI insights, private chat, and saving goals.
 
 ## Run on this Windows machine
 
@@ -39,6 +39,7 @@ Open **http://localhost:5173**. API documentation: **http://127.0.0.1:8000/docs*
 python -m venv backend/.venv
 backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.lock.txt
 npm.cmd ci --prefix frontend
+backend/.venv/Scripts/python.exe ml/train_categories.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/setup-local.ps1
 ```
 
@@ -65,6 +66,9 @@ The backend must be running on port 8000 for browser tests. Playwright starts Vi
 - **Overview:** select a month to view income, expenses, savings, previous-month comparisons, category breakdown, daily spending, six-month trends, and recent transactions. All charts use your actual records; a new account starts empty.
 - **Transactions:** add income or expenses, choose a compatible category, merchant, and date, then view, edit, or delete entries. Search descriptions/merchants, combine category/type/date filters, change sorting, and paginate results.
 - **Import statement:** upload CSV or XLSX, confirm detected columns or map them manually, choose date order and the default direction for unsigned amounts, and preview. Correct fields in the table and check rows to include. Invalid rows and possible duplicates start unchecked. Only **Confirm import** saves records. Duplicate checking runs again during confirmation.
+- **Category suggestions:** transaction forms and imports use your private confirmed labels, merchant/keyword rules, then a saved TF-IDF classifier. You can always change the category. Use the form's label controls to download your labels or train a private model once there are enough examples.
+- **Looking ahead:** the dashboard estimates next calendar month's expenses from completed-month history. Limited history uses a simple average with low confidence; no history shows no estimate. Expand the explanation for coverage, MAE/RMSE comparisons, and limitations.
+- **Unusual transactions:** dashboard warnings show baseline comparisons and explanations. Review an entry, mark it normal, show dismissed warnings, or restore a warning. LifeLens does not determine fraud.
 
 A [sample CSV](frontend/public/sample-statement.csv) is included and can be downloaded from the import screen. Supported statements have a header row, at most 2,000 records, at most 50 columns, and are 5 MB or smaller. XLSX uses the first worksheet. Amounts are LKR with decimal points and optional comma thousands separators; there is no currency conversion. Dates support ISO, day-first/month-first formats, and Excel dates. Review all inferred values before confirming.
 
@@ -77,8 +81,15 @@ A [sample CSV](frontend/public/sample-statement.csv) is included and can be down
 - Owner-scoped transaction create/read/update/delete, category/type validation, search, inclusive date/category/type filters, pagination, sorting, and details dialogs.
 - Five Chart.js views: income versus expenses, category doughnut, monthly spending line, daily spending, and six-month income/expense/savings trend.
 - PostgreSQL dashboard aggregates, exact money values, recent transactions, top spending category, and previous-month percentage comparisons.
-- pandas-based CSV/XLSX parsing, editable mapping and previews, date/amount normalization, merchant-rule category suggestions, duplicate detection, and atomic confirmation. Uploaded statements are not permanently stored.
+- pandas-based CSV/XLSX parsing, editable mapping and previews, date/amount normalization, rules/ML category suggestions, duplicate detection, and atomic confirmation. Uploaded statements are not permanently stored.
+- Merchant normalization, private corrected labels, downloadable training data, TF-IDF classification, Logistic Regression/Random Forest comparison, evaluation metrics, and saved model integration.
+- Monthly expense aggregation, chronological regression backtests, moving-average fallback, next-month prediction/chart, heuristic planning range, and explicit limitations.
+- Category/merchant robust baselines, experimental Isolation Forest, persisted unusual-spending explanations/scores, and normal overrides.
 
-Predictions, anomaly detection, saving-goal workflows, chat, reports, and ML/LLM integrations are future phases and are not implemented. Import category suggestions use deterministic rules rather than ML.
+Saving-goal workflows, AI chat, LLM explanations, and report generation remain future phases. No LLM is used in phases 7–9. The shared starter classifier is trained on synthetic examples; its scores do not establish real-bank-statement accuracy. See [intelligence details and APIs](docs/intelligence.md).
 
 See [architecture](docs/architecture.md) for API and security details.
+
+## AI chat and saving goals
+
+Use **Ask LifeLens** for spending questions and **Saving goals** to create, edit, fund and track goals. Dashboard insights explain recorded monthly changes. Configure the optional LLM key only in backend/.env; local analysis works without it. See [AI and goals setup, privacy and calculations](docs/ai-and-goals.md).
