@@ -1,3 +1,4 @@
+document.documentElement.dataset.theme = localStorage.getItem('lifelens-theme') || 'light';
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom';

@@ -12,3 +12,11 @@ test-results/
 playwright-report/
 ml/artifacts/
 ml/private-data/
+uploads/
+bank-statements/
+*.pdf
+*.xlsx
+*.xls
+*.csv
+!frontend/public/sample-statement.csv
+!ml/data/starter_categories.csv

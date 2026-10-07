@@ -15,3 +15,6 @@ python-multipart>=0.0.20,<1
 defusedxml>=0.7,<1
 scikit-learn>=1.6,<2
 joblib>=1.4,<2
+reportlab>=4.4,<5
+pypdf>=6,<7
+pip-audit>=2.9,<3

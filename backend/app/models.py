@@ -84,3 +84,17 @@ class ChatTurn(Base):
     question: Mapped[str] = mapped_column(String(1000))
     answer: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class FinancialReport(Base):
+    __tablename__ = 'financial_reports'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    month: Mapped[date]
+    data: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class RateLimitBucket(Base):
+    __tablename__ = 'rate_limit_buckets'
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    count: Mapped[int]
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

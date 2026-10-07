@@ -1,6 +1,6 @@
 # LifeLens AI
 
-Personal finance application implemented through **phases 1–12**: React/Vite/Tailwind, FastAPI, PostgreSQL/SQLAlchemy, migrations, authentication, transactions, charts, statement import, private category learning, expense forecasts, and unusual-spending detection, grounded AI insights, private chat, and saving goals.
+Personal finance application implemented through **phases 1–16**: React/Vite/Tailwind, FastAPI, PostgreSQL/SQLAlchemy, migrations, authentication, transactions, charts, statement import, private category learning, expense forecasts, and unusual-spending detection, grounded AI insights, private chat, and saving goals.
 
 ## Run on this Windows machine
 
@@ -93,3 +93,9 @@ See [architecture](docs/architecture.md) for API and security details.
 ## AI chat and saving goals
 
 Use **Ask LifeLens** for spending questions and **Saving goals** to create, edit, fund and track goals. Dashboard insights explain recorded monthly changes. Configure the optional LLM key only in backend/.env; local analysis works without it. See [AI and goals setup, privacy and calculations](docs/ai-and-goals.md).
+
+## Reports, appearance and security
+
+Open **Reports** to preview a month, generate a PDF and revisit immutable historical snapshots. **Analytics** exposes the financial charts, and **Settings** includes persistent light/dark appearance, account information and confirmed chat-history clearing.
+
+[Reports and security details](docs/reports-security.md) describe request limits, ownership, logging, browser headers and dependency checks. [Complete manual test](docs/manual-test.md) covers registration through report generation. Apply migrations before starting the updated backend. Use scripts/start-backend.ps1 so access logging and forwarded-header processing are disabled.
